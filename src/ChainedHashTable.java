@@ -162,11 +162,15 @@ public class ChainedHashTable<K,V> implements HashTable<K,V> {
       } // if reporter != null
       throw new IndexOutOfBoundsException("Invalid key: " + key);
     } else {
-      Pair<K,V> pair = alist.get(0);
-      if (REPORT_BASIC_CALLS && (reporter != null)) {
-        reporter.report("get(" + key + ") => " + pair.value());
-      } // if reporter != null
-      return pair.value();
+      for (Pair<K,V> pair: alist) {
+        if (pair.key().equals(key)) {
+          if (REPORT_BASIC_CALLS && (reporter != null)) {
+            reporter.report("get(" + key + ") => " + pair.value());
+          } // if reporter != null
+          return pair.value();
+        } // if (pair.key().equals(key))
+      } //  for (Pair<K,V> pair: alist) 
+      throw new IndexOutOfBoundsException("Invalid key: " + key);
     } // get
   } // get(K)
 
@@ -191,6 +195,7 @@ public class ChainedHashTable<K,V> implements HashTable<K,V> {
    */
   @SuppressWarnings("unchecked")
   public V set(K key, V value) {
+    int flag = 0;
     V result = null;
     // If there are too many entries, expand the table.
     if (this.size > (this.buckets.length * LOAD_FACTOR)) {
@@ -204,10 +209,20 @@ public class ChainedHashTable<K,V> implements HashTable<K,V> {
     if (alist == null) {
       alist = new ArrayList<Pair<K,V>>();
       this.buckets[index] = alist;
-    }
+    } else {
+      for (int i = 0; i < alist.size(); i++){
+        if (alist.get(i).key().equals(key)){
+          result = alist.get(i).value();
+          Pair<K,V> pair = new Pair<K,V>(key, value);
+          alist.set(i, pair);
+          flag = -1;
+        }
+        } 
+      }
+    if (flag != -1){
     alist.add(new Pair<K,V>(key, value));
     ++this.size;
-
+    }
     // Report activity, if appropriate
     if (REPORT_BASIC_CALLS && (reporter != null)) {
       reporter.report("adding '" + key + ":" + value + "' to bucket " + index);
@@ -302,13 +317,27 @@ public class ChainedHashTable<K,V> implements HashTable<K,V> {
   /**
    * Expand the size of the table.
    */
+  @SuppressWarnings("unchecked")
   void expand() {
     // Figure out the size of the new table
     int newSize = 2 * this.buckets.length + rand.nextInt(10);
     if (REPORT_BASIC_CALLS && (reporter != null)) {
       reporter.report("Expanding to " + newSize + " elements.");
     } // if reporter != null
-    // STUB
+    // Remember the old table
+    Object[] oldBuckets = this.buckets;
+    // Create a new table of that size.
+    this.buckets = new Object[newSize];
+    // Move all buckets from the old table to their appropriate
+    // location in the new table.
+    for (int i = 0; i < oldBuckets.length; i++) {
+      if (oldBuckets[i] == null) {
+        continue;
+      }
+      for (Pair<K,V> pair: (ArrayList<Pair<K,V>>) oldBuckets[i]) {
+        this.set(pair.key(), pair.value());
+      }
+    } // for
   } // expand()
 
   /**
